@@ -4,7 +4,58 @@ const {
   fsReadFile,
 } = require('./utils.js');
 
-async function markdownFrontMatter(options, contents, file, group, config) {
+const markdownLinkRegex =
+  /\[([^\]]+)\]\(([^)#]+)?(#[^\s)]*)?(\s+'[^']*'|\s+"[^"]*")?\)/gm;
+
+async function markdownLinkFixer(options, contents, file, group) {
+  const {
+    substitutions,
+  } = options;
+  let updatedContents = contents;
+  if (Array.isArray(substitutions) && substitutions.length > 0) {
+    const subsMap = new Map();
+    substitutions.forEach(([from, to]) => {
+      subsMap.set(from, to);
+    });
+
+    updatedContents = updatedContents.replace(
+      markdownLinkRegex,
+      (_match, linkText, linkUrl, anchorId, text) => {
+        let endPart = '';
+        if (anchorId) {
+          // sanitise the anchor ID
+          endPart += anchorId.toLowerCase().replace(/[^#\-\w\d]/g, '');
+        }
+        if (text) {
+          endPart += text;
+        }
+        let substituteUrl;
+        if (!linkUrl) {
+          substituteUrl = '';
+        } else {
+          substituteUrl = subsMap.get(linkUrl);
+          if (!substituteUrl) {
+            // toggle trailing / and try again
+            const linkWithToggledTrailingSlash = linkUrl.endsWith('/') ?
+              linkUrl.slice(0, -1) :
+              linkUrl + '/';
+            substituteUrl = subsMap.get(linkWithToggledTrailingSlash);
+          }
+        }
+        let replacement;
+        if (typeof substituteUrl === 'string') {
+          replacement = `[${linkText}](${substituteUrl}${endPart})`;
+        } else {
+          replacement = `[${linkText}](${linkUrl}${endPart})`;
+        }
+        return replacement;
+      },
+    );
+  }
+  return updatedContents;
+}
+
+async function markdownFrontMatter(options, contents, file, group) {
   const mergeOption = options.merge;
   if (mergeOption === 'localFmRemoteBody') {
     // return local frontmatter with remote body
@@ -51,5 +102,6 @@ function splitFmAndBody(contents) {
 }
 
 module.exports = {
+  markdownLinkFixer,
   markdownFrontMatter,
 };
