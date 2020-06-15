@@ -1,0 +1,26 @@
+{
+  "name": "cpdoc",
+  "version": "0.0.0",
+  "description": "Makes copies of documentation from distributed sources, with custom post-processing",
+  "main": "cpdoc.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bguiz/cpdoc.git"
+  },
+  "keywords": [
+    "copy",
+    "docs",
+    "documentation",
+    "markdown",
+    "git"
+  ],
+  "author": "bguiz",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/bguiz/cpdoc/issues"
+  },
+  "homepage": "https://github.com/bguiz/cpdoc#readme"
+}
