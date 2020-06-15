@@ -1,18 +1,24 @@
 const path = require('path');
 
+const {
+  fsWriteFile,
+} = require('./utils.js');
+
+const {
+  httpGet,
+} = require('./copiers.js');
+
+const {
+  markdownFrontMatter,
+} = require('./post-processors.js');
+
 async function cpdoc(config, configFileName) {
-  console.log(configFileName);
   const processGroupsPromises = config.groups.map((group) => (processGroup(group, config)));
   return Promise.all(processGroupsPromises);
 }
 
 async function processGroup(group, config) {
   const {
-    id,
-    rootDir,
-    copyMethod,
-    filters,
-    postProcessors,
     files,
   } = group;
 
@@ -26,14 +32,34 @@ async function processFile(file, group, config) {
     local,
   } = file;
   const {
-    id: groupId,
     rootDir,
+    copier,
+    postProcessors,
   } = group;
-  const {
-    id: configId,
-  } = config;
+
+  let remoteFile;
+  if (copier === 'httpGet') {
+    remoteFile = await httpGet(remote);
+  } else {
+    throw new Error(`Unsupported copier ${copier}`);
+  }
+
+  let contents = remoteFile;
+  let postProcessor;
+  for (postProcessor of postProcessors) {
+    const {
+      id: postProcessorId,
+      options: postProcessorOptions
+    } = postProcessor;
+    if (postProcessorId === 'markdownFrontMatter') {
+      contents = await markdownFrontMatter(postProcessorOptions, contents, file, group, config);
+    } else {
+      throw new Error(`Unsupported post-processor ${postProcessorId}`);
+    }
+  }
+
   const localPath = path.join(rootDir, local);
-  console.log('processFile', configId, groupId, remote, localPath);
+  await fsWriteFile(localPath, contents);
 }
 
 module.exports = {
