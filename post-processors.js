@@ -2,8 +2,62 @@ const path = require('path');
 
 const {
   fsReadFile,
+  sanitiseAsId,
+  parseUrlFileName,
 } = require('./utils.js');
+const {
+  httpGetSaveFile,
+} = require('./copiers.js');
 
+const markdownExternalImageRegex =
+  /!\[([^\]]+)?\]\((https?\:\/\/[^)#]+)?(#[^\s)]*)?(\s+'[^']*'|\s+"[^"]*")?\)/gm;
+
+async function markdownExternalImageReplacer(options, contents, file, group) {
+  const {
+    imageDir,
+  } = options;
+  const imageDownloadPromises = [];
+  let updatedContents = contents;
+  updatedContents = updatedContents.replace(
+    markdownExternalImageRegex,
+    (_match, linkText, linkUrl, anchorId, text) => {
+      // console.log(linkUrl);
+      if (!linkText) {
+        linkText = '';
+      }
+      let endPart = '';
+      if (anchorId) {
+        // sanitise the anchor ID
+        endPart += sanitiseAsId(anchorId);
+      }
+      if (text) {
+        endPart += text;
+      }
+      let imageFileName;
+      let parsedImageUrl = parseUrlFileName(linkUrl);
+      if (linkText) {
+        imageFileName = sanitiseAsId(linkText);
+      } else if (text) {
+        imageFileName = sanitiseAsId(text);
+      } else {
+        imageFileName = parsedImageUrl.fileName;
+      }
+      const imageFileNameExt = `${imageFileName}.${parsedImageUrl.fileExt}`;
+      const substituteUrl = path.join(imageDir, imageFileNameExt);
+      // console.log(substituteUrl);
+      imageDownloadPromises.push(
+        httpGetSaveFile(linkUrl, substituteUrl),
+      );
+      const replacement = `![${linkText}](/${substituteUrl}${endPart})`;
+      return replacement;
+    },
+  );
+  await Promise.all(imageDownloadPromises);
+  return updatedContents;
+}
+
+// NOTE that it is intentional that this matches on images too
+// a leading `!` does not preclude a successful match
 const markdownLinkRegex =
   /\[([^\]]+)\]\(([^)#]+)?(#[^\s)]*)?(\s+'[^']*'|\s+"[^"]*")?\)/gm;
 
@@ -24,7 +78,7 @@ async function markdownLinkFixer(options, contents, file, group) {
         let endPart = '';
         if (anchorId) {
           // sanitise the anchor ID
-          endPart += anchorId.toLowerCase().replace(/[^#\-\w\d]/g, '');
+          endPart += sanitiseAsId(anchorId);
         }
         if (text) {
           endPart += text;
@@ -102,6 +156,7 @@ function splitFmAndBody(contents) {
 }
 
 module.exports = {
+  markdownExternalImageReplacer,
   markdownLinkFixer,
   markdownFrontMatter,
 };

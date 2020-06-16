@@ -9,6 +9,7 @@ const {
 } = require('./copiers.js');
 
 const {
+  markdownExternalImageReplacer,
   markdownLinkFixer,
   markdownFrontMatter,
 } = require('./post-processors.js');
@@ -56,6 +57,8 @@ async function processFile(file, group, config) {
       contents = await markdownFrontMatter(postProcessorOptions, contents, file, group, config);
     } else if (postProcessorId === 'markdownLinkFixer') {
       contents = await markdownLinkFixer(postProcessorOptions, contents, file, group, config);
+    }  else if (postProcessorId === 'markdownExternalImageReplacer') {
+      contents = await markdownExternalImageReplacer(postProcessorOptions, contents, file, group, config);
     } else {
       throw new Error(`Unsupported post-processor ${postProcessorId}`);
     }
