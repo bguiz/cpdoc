@@ -24,6 +24,7 @@ const markdownExternalImageRegex =
 async function markdownExternalImageReplacer(options, contents, file, group) {
   const {
     imageDir,
+    skipDownloads,
   } = options;
   const imageDownloadPromises = [];
   let updatedContents = contents;
@@ -54,14 +55,18 @@ async function markdownExternalImageReplacer(options, contents, file, group) {
       const imageFileNameExt = `${imageFileName}.${parsedImageUrl.fileExt}`;
       const substituteUrl = path.join(imageDir, imageFileNameExt);
       // console.log(substituteUrl);
-      imageDownloadPromises.push(
-        httpGetSaveFile(linkUrl, substituteUrl),
-      );
+      if (!skipDownloads) {
+        imageDownloadPromises.push(
+          httpGetSaveFile(linkUrl, substituteUrl),
+        );
+      }
       const replacement = `![${linkText}](/${substituteUrl}${endPart})`;
       return replacement;
     },
   );
-  await Promise.all(imageDownloadPromises);
+  if (!skipDownloads) {
+    await Promise.all(imageDownloadPromises);
+  }
   return updatedContents;
 }
 
