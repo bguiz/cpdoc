@@ -75,6 +75,40 @@ async function markdownExternalImageReplacer(options, contents, file, group) {
 const markdownLinkRegex =
   /\[([^\]]+)\]\(([^)#]+)?(#[^\s)]*)?(\s+'[^']*'|\s+"[^"]*")?\)/gm;
 
+const htmlLinkRegex =
+/<a\s+[^>]*?href="([^"#]*)(#[^\s"]*)?"(?:\s+[^>]*)?>([^<]*)<\/a>/gm;
+
+function getLinkReplacement(subsMap, linkText, linkUrl, anchorId, text) {
+  let endPart = '';
+  if (anchorId) {
+    // sanitise the anchor ID
+    endPart += sanitiseAsId(anchorId);
+  }
+  if (text) {
+    endPart += text;
+  }
+  let substituteUrl;
+  if (!linkUrl) {
+    substituteUrl = '';
+  } else {
+    substituteUrl = subsMap.get(linkUrl);
+    if (!substituteUrl) {
+      // toggle trailing / and try again
+      const linkWithToggledTrailingSlash = linkUrl.endsWith('/') ?
+        linkUrl.slice(0, -1) :
+        linkUrl + '/';
+      substituteUrl = subsMap.get(linkWithToggledTrailingSlash);
+    }
+  }
+  let replacement;
+  if (typeof substituteUrl === 'string') {
+    replacement = `[${linkText}](${substituteUrl}${endPart})`;
+  } else {
+    replacement = `[${linkText}](${linkUrl}${endPart})`;
+  }
+  return replacement;
+}
+
 async function markdownLinkFixer(options, contents, file, group) {
   const {
     substitutions,
@@ -87,36 +121,16 @@ async function markdownLinkFixer(options, contents, file, group) {
     });
 
     updatedContents = updatedContents.replace(
+      htmlLinkRegex,
+      (_match, linkUrl, anchorId, linkText) => {
+        return getLinkReplacement(subsMap, linkText, linkUrl, anchorId, undefined);
+      },
+    );
+
+    updatedContents = updatedContents.replace(
       markdownLinkRegex,
       (_match, linkText, linkUrl, anchorId, text) => {
-        let endPart = '';
-        if (anchorId) {
-          // sanitise the anchor ID
-          endPart += sanitiseAsId(anchorId);
-        }
-        if (text) {
-          endPart += text;
-        }
-        let substituteUrl;
-        if (!linkUrl) {
-          substituteUrl = '';
-        } else {
-          substituteUrl = subsMap.get(linkUrl);
-          if (!substituteUrl) {
-            // toggle trailing / and try again
-            const linkWithToggledTrailingSlash = linkUrl.endsWith('/') ?
-              linkUrl.slice(0, -1) :
-              linkUrl + '/';
-            substituteUrl = subsMap.get(linkWithToggledTrailingSlash);
-          }
-        }
-        let replacement;
-        if (typeof substituteUrl === 'string') {
-          replacement = `[${linkText}](${substituteUrl}${endPart})`;
-        } else {
-          replacement = `[${linkText}](${linkUrl}${endPart})`;
-        }
-        return replacement;
+        return getLinkReplacement(subsMap, linkText, linkUrl, anchorId, text);
       },
     );
   }
