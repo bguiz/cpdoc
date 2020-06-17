@@ -9,6 +9,15 @@ const {
   httpGetSaveFile,
 } = require('./copiers.js');
 
+const markDownFirstHeadingRegex =
+  /(^#{1,6}\s+[^\s].*$\n+|^.*$\n^={1,}$\n+)/m;
+
+async function markdownFirstHeadingRemover(options, contents, file, group) {
+  let updatedContents = contents;
+  updatedContents = updatedContents.replace(markDownFirstHeadingRegex, '');
+  return updatedContents;
+}
+
 const markdownExternalImageRegex =
   /!\[([^\]]+)?\]\((https?\:\/\/[^)#]+)?(#[^\s)]*)?(\s+'[^']*'|\s+"[^"]*")?\)/gm;
 
@@ -156,6 +165,7 @@ function splitFmAndBody(contents) {
 }
 
 module.exports = {
+  markdownFirstHeadingRemover,
   markdownExternalImageReplacer,
   markdownLinkFixer,
   markdownFrontMatter,
