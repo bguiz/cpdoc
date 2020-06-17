@@ -78,6 +78,9 @@ const markdownLinkRegex =
 const htmlLinkRegex =
 /<a\s+[^>]*?href="([^"#]*)(#[^\s"]*)?"(?:\s+[^>]*)?>([^<]*)<\/a>/gm;
 
+const htmlImageRegex =
+  /<img[^>]+src="([^"]+)"(?:[^>]*)>/gm;
+
 function getLinkReplacement(subsMap, linkText, linkUrl, anchorId, text) {
   let endPart = '';
   if (anchorId) {
@@ -124,6 +127,13 @@ async function markdownLinkFixer(options, contents, file, group) {
       htmlLinkRegex,
       (_match, linkUrl, anchorId, linkText) => {
         return getLinkReplacement(subsMap, linkText, linkUrl, anchorId, undefined);
+      },
+    );
+
+    updatedContents = updatedContents.replace(
+      htmlImageRegex,
+      (_match, linkUrl) => {
+        return '!' + getLinkReplacement(subsMap, '', linkUrl, undefined, undefined);
       },
     );
 
