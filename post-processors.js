@@ -2,6 +2,7 @@ const path = require('path');
 
 const {
   fsReadFile,
+  doesFileExist,
   sanitiseAsId,
   parseUrlFileName,
 } = require('./utils.js');
@@ -21,12 +22,19 @@ async function markdownFirstHeadingRemover(options, contents, file, group) {
 const markdownExternalImageRegex =
   /!\[([^\]]+)?\]\((https?\:\/\/[^)#]+)?(#[^\s)]*)?(\s+'[^']*'|\s+"[^"]*")?\)/gm;
 
+const markdownExternalImageReplacerDownloadModes =
+  ['skip', 'always', 'default'];
+
 async function markdownExternalImageReplacer(options, contents, file, group) {
-  const {
+  let {
     imageDir,
-    skipDownloads,
+    downloadMode,
   } = options;
-  const imageDownloadPromises = [];
+  if (markdownExternalImageReplacerDownloadModes.indexOf(downloadMode) < 0) {
+    downloadMode = 'default';
+  }
+
+  const imageSubList = [];
   let updatedContents = contents;
   updatedContents = updatedContents.replace(
     markdownExternalImageRegex,
@@ -55,16 +63,50 @@ async function markdownExternalImageReplacer(options, contents, file, group) {
       const imageFileNameExt = `${imageFileName}.${parsedImageUrl.fileExt}`;
       const substituteUrl = path.join(imageDir, imageFileNameExt);
       // console.log(substituteUrl);
-      if (!skipDownloads) {
-        imageDownloadPromises.push(
-          httpGetSaveFile(linkUrl, substituteUrl),
-        );
+
+      if (downloadMode !== 'skip') {
+        imageSubList.push([linkUrl, substituteUrl]);
       }
       const replacement = `![${linkText}](/${substituteUrl}${endPart})`;
       return replacement;
     },
   );
-  if (!skipDownloads) {
+  if (imageSubList.length > 0) {
+    const imageDownloadPromises = [];
+    const imageMap = new Map();
+
+    for (imageSub of imageSubList) {
+      const [
+        linkUrl,
+        substituteUrl,
+      ] = imageSub;
+      const prevSubstituteUrl = imageMap.get(linkUrl);
+      if (!prevSubstituteUrl) {
+        let fileExists = false;
+        if (downloadMode !== 'always') {
+          fileExists = await doesFileExist(substituteUrl);
+        }
+        if (!fileExists) {
+          imageDownloadPromises.push(
+            httpGetSaveFile(linkUrl, substituteUrl),
+          );
+        } else {
+          // console.log(
+          //   `The image file ${linkUrl
+          //   } already exists at ${substituteUrl
+          //   }. Not downloading again. Change 'downloadMode' to 'always' to override.`);
+        }
+        imageMap.set(linkUrl, substituteUrl);
+      } else if (prevSubstituteUrl !== substituteUrl) {
+        console.warn(
+          `The image file ${linkUrl
+          } has previously been downloaded as ${prevSubstituteUrl
+          }, however is now also expected at ${substituteUrl
+          }. Please rectify in source files.`);
+      }
+    }
+    // console.log('Image files parsed count:', imageSubList.length);
+    // console.log('Image file download count:', imageDownloadPromises.length);
     await Promise.all(imageDownloadPromises);
   }
   return updatedContents;
