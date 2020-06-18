@@ -6,7 +6,13 @@ const fsWriteFile = util.promisify(fs.writeFile);
 const fsReadFile = util.promisify(fs.readFile);
 
 function sanitiseAsId(str) {
-  return str.toLowerCase().replace(/[^#\-\w\d]/g, '');
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/\'/g, '')
+    .replace(/[^#\-\w\d]/g, '-')
+    .replace(/(\-{2,})/g, '-')
+    .replace(/(^\-+|\-+$)/g, '');
 }
 
 function parseUrlFileName(url) {
