@@ -5,6 +5,14 @@ const fsWriteFile = util.promisify(fs.writeFile);
 
 const fsReadFile = util.promisify(fs.readFile);
 
+function doesFileExist(filepath){
+  return new Promise((resolve) => {
+    fs.access(filepath, fs.constants.F_OK, (error) => {
+      resolve(!error);
+    });
+  });
+}
+
 function sanitiseAsId(str) {
   return str
     .trim()
@@ -38,6 +46,7 @@ function parseUrlFileName(url) {
 module.exports = {
   fsWriteFile,
   fsReadFile,
+  doesFileExist,
   sanitiseAsId,
   parseUrlFileName,
 };
