@@ -22,8 +22,15 @@ async function cpdoc(config, configFileName) {
 
 async function processGroup(group, config) {
   const {
+    id,
+    skip,
     files,
   } = group;
+
+  if (skip) {
+    console.warn('skipping group:', id);
+    return;
+  }
 
   const processFilesPromises = files.map((file) => (processFile(file, group, config)));
   return Promise.all(processFilesPromises);
