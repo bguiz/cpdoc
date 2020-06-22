@@ -9,6 +9,7 @@ const {
 } = require('./copiers.js');
 
 const {
+  markdownHtmlStyleRemover,
   markdownFirstHeadingRemover,
   markdownExternalImageReplacer,
   markdownLinkFixer,
@@ -69,6 +70,8 @@ async function processFile(file, group, config) {
       contents = await markdownExternalImageReplacer(postProcessorOptions, contents, file, group, config);
     } else if (postProcessorId === 'markdownFirstHeadingRemover') {
       contents = await markdownFirstHeadingRemover(postProcessorOptions, contents, file, group, config);
+    } else if (postProcessorId === 'markdownHtmlStyleRemover') {
+      contents = await markdownHtmlStyleRemover(postProcessorOptions, contents, file, group, config);
     } else {
       throw new Error(`Unsupported post-processor ${postProcessorId}`);
     }

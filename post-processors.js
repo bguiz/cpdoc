@@ -10,6 +10,15 @@ const {
   httpGetSaveFile,
 } = require('./copiers.js');
 
+const markdownHtmlStyleRegex =
+  /\<style\>((?!\<\/style\>)(.|\n))*\<\/style\>/mg;
+
+async function markdownHtmlStyleRemover(options, contents, file, group) {
+  let updatedContents = contents;
+  updatedContents = updatedContents.replace(markdownHtmlStyleRegex, '');
+  return updatedContents;
+}
+
 const markDownFirstHeadingRegex =
   /(^#{1,6}\s+[^\s].*$\n+|^.*$\n^={1,}$\n+)/m;
 
@@ -241,6 +250,7 @@ function splitFmAndBody(contents) {
 }
 
 module.exports = {
+  markdownHtmlStyleRemover,
   markdownFirstHeadingRemover,
   markdownExternalImageReplacer,
   markdownLinkFixer,
