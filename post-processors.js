@@ -123,7 +123,7 @@ const htmlLinkRegex =
 const htmlImageRegex =
   /<img[^>]+src="([^"]+)"(?:[^>]*)>/gm;
 
-function getLinkReplacement(subsMap, linkText, linkUrl, anchorId, text) {
+function getLinkReplacement(subsMap, category, linkText, linkUrl, anchorId, text) {
   let endPart = '';
   if (anchorId) {
     // sanitise the anchor ID
@@ -137,7 +137,7 @@ function getLinkReplacement(subsMap, linkText, linkUrl, anchorId, text) {
     substituteUrl = '';
   } else {
     substituteUrl = subsMap.get(linkUrl);
-    if (!substituteUrl) {
+    if (typeof substituteUrl !== 'string') {
       // toggle trailing / and try again
       const linkWithToggledTrailingSlash = linkUrl.endsWith('/') ?
         linkUrl.slice(0, -1) :
@@ -146,20 +146,25 @@ function getLinkReplacement(subsMap, linkText, linkUrl, anchorId, text) {
     }
   }
   let replacement;
-  if (typeof substituteUrl === 'string') {
+  if (typeof substituteUrl !== 'string') {
+    substituteUrl = linkUrl;
+  }
+  if (category === '[]()') {
     replacement = `[${linkText}](${substituteUrl}${endPart})`;
-  } else {
-    replacement = `[${linkText}](${linkUrl}${endPart})`;
+  } else if (category === '<a>') {
+    replacement = `<a href="${substituteUrl}${endPart}">${linkText}</a>`
+  } else if (category === '<img>') {
+    replacement = `<img src="${substituteUrl}${endPart}" alt="${linkText}" />`
   }
   return replacement;
 }
 
 async function markdownLinkFixer(options, contents, file, group) {
   const {
-    substitutions,
+    substitutions = [],
   } = options;
   let updatedContents = contents;
-  if (Array.isArray(substitutions) && substitutions.length > 0) {
+  if (Array.isArray(substitutions)) {
     const subsMap = new Map();
     substitutions.forEach(([from, to]) => {
       subsMap.set(from, to);
@@ -168,21 +173,21 @@ async function markdownLinkFixer(options, contents, file, group) {
     updatedContents = updatedContents.replace(
       htmlLinkRegex,
       (_match, linkUrl, anchorId, linkText) => {
-        return getLinkReplacement(subsMap, linkText, linkUrl, anchorId, undefined);
+        return getLinkReplacement(subsMap, '<a>', linkText, linkUrl, anchorId, undefined);
       },
     );
 
     updatedContents = updatedContents.replace(
       htmlImageRegex,
       (_match, linkUrl) => {
-        return '!' + getLinkReplacement(subsMap, '', linkUrl, undefined, undefined);
+        return getLinkReplacement(subsMap, '<img>', '', linkUrl, undefined, undefined);
       },
     );
 
     updatedContents = updatedContents.replace(
       markdownLinkRegex,
       (_match, linkText, linkUrl, anchorId, text) => {
-        return getLinkReplacement(subsMap, linkText, linkUrl, anchorId, text);
+        return getLinkReplacement(subsMap, '[]()', linkText, linkUrl, anchorId, text);
       },
     );
   }
