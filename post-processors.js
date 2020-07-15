@@ -30,6 +30,8 @@ async function markdownFirstHeadingRemover(options, contents, file, group) {
 
 const markdownExternalImageRegex =
   /!\[([^\]]+)?\]\((https?\:\/\/[^)#]+)?(#[^\s)]*)?(\s+'[^']*'|\s+"[^"]*")?\)/gm;
+const htmlExternalImageRegex =
+  /<img[^>]+src="(https?\:\/\/[^"#]+)?(#[^\s)]*)?"(?:[^>]*)>/gm;
 
 const markdownExternalImageReplacerDownloadModes =
   ['skip', 'always', 'default'];
@@ -68,6 +70,8 @@ function getExternalImageReplacement(
   let replacement;
   if (category === '![]()') {
     replacement = `![${linkText}](/${substituteUrl}${endPart})`;
+  } else if (category === '<img>') {
+    replacement = `<img src="/${substituteUrl}${endPart}" alt="${linkText}" />`
   }
   return replacement;
 }
@@ -90,6 +94,16 @@ async function markdownExternalImageReplacer(
     (_match, linkText, linkUrl, anchorId, text) => {
       return getExternalImageReplacement(
         imageDir, downloadMode, imageSubList, '![]()', linkText, linkUrl, anchorId, text);
+    },
+  );
+
+  updatedContents = updatedContents.replace(
+    htmlExternalImageRegex,
+    (match, linkUrl, anchorId) => {
+      const altMatch = match.match(htmlAltPropertyRegex);
+      const linkText = (altMatch && altMatch[1]) || '';
+      return getExternalImageReplacement(
+        imageDir, downloadMode, imageSubList, '<img>', linkText, linkUrl, anchorId, undefined);
     },
   );
 
