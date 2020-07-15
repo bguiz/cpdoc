@@ -34,7 +34,46 @@ const markdownExternalImageRegex =
 const markdownExternalImageReplacerDownloadModes =
   ['skip', 'always', 'default'];
 
-async function markdownExternalImageReplacer(options, contents, file, group) {
+function getExternalImageReplacement(
+  imageDir, downloadMode, imageSubList, category, linkText, linkUrl, anchorId, text) {
+  // console.log(linkUrl);
+  if (!linkText) {
+    linkText = '';
+  }
+  let endPart = '';
+  if (anchorId) {
+    // sanitise the anchor ID
+    endPart += sanitiseAsId(anchorId);
+  }
+  if (text) {
+    endPart += text;
+  }
+  let imageFileName;
+  let parsedImageUrl = parseUrlFileName(linkUrl);
+  if (linkText) {
+    imageFileName = sanitiseAsId(linkText);
+  } else if (text) {
+    imageFileName = sanitiseAsId(text);
+  } else {
+    imageFileName = parsedImageUrl.fileName;
+  }
+  const imageFileNameExt = `${imageFileName}.${parsedImageUrl.fileExt}`;
+  const substituteUrl = path.join(imageDir, imageFileNameExt);
+  // console.log(substituteUrl);
+
+  if (downloadMode !== 'skip') {
+    imageSubList.push([linkUrl, substituteUrl]);
+  }
+
+  let replacement;
+  if (category === '![]()') {
+    replacement = `![${linkText}](/${substituteUrl}${endPart})`;
+  }
+  return replacement;
+}
+
+async function markdownExternalImageReplacer(
+  options, contents, file, group) {
   let {
     imageDir,
     downloadMode,
@@ -45,41 +84,15 @@ async function markdownExternalImageReplacer(options, contents, file, group) {
 
   const imageSubList = [];
   let updatedContents = contents;
+
   updatedContents = updatedContents.replace(
     markdownExternalImageRegex,
     (_match, linkText, linkUrl, anchorId, text) => {
-      // console.log(linkUrl);
-      if (!linkText) {
-        linkText = '';
-      }
-      let endPart = '';
-      if (anchorId) {
-        // sanitise the anchor ID
-        endPart += sanitiseAsId(anchorId);
-      }
-      if (text) {
-        endPart += text;
-      }
-      let imageFileName;
-      let parsedImageUrl = parseUrlFileName(linkUrl);
-      if (linkText) {
-        imageFileName = sanitiseAsId(linkText);
-      } else if (text) {
-        imageFileName = sanitiseAsId(text);
-      } else {
-        imageFileName = parsedImageUrl.fileName;
-      }
-      const imageFileNameExt = `${imageFileName}.${parsedImageUrl.fileExt}`;
-      const substituteUrl = path.join(imageDir, imageFileNameExt);
-      // console.log(substituteUrl);
-
-      if (downloadMode !== 'skip') {
-        imageSubList.push([linkUrl, substituteUrl]);
-      }
-      const replacement = `![${linkText}](/${substituteUrl}${endPart})`;
-      return replacement;
+      return getExternalImageReplacement(
+        imageDir, downloadMode, imageSubList, '![]()', linkText, linkUrl, anchorId, text);
     },
   );
+
   if (imageSubList.length > 0) {
     const imageDownloadPromises = [];
     const imageMap = new Map();
