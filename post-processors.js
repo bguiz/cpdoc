@@ -131,6 +131,8 @@ const htmlLinkRegex =
 
 const htmlImageRegex =
   /<img[^>]+src="([^"]+)"(?:[^>]*)>/gm;
+const htmlAltPropertyRegex =
+  /^.*alt="([^"]+)".*$/;
 
 function getLinkReplacement(subsMap, category, linkText, linkUrl, anchorId, text) {
   let endPart = '';
@@ -188,8 +190,10 @@ async function markdownLinkFixer(options, contents, file, group) {
 
     updatedContents = updatedContents.replace(
       htmlImageRegex,
-      (_match, linkUrl) => {
-        return getLinkReplacement(subsMap, '<img>', '', linkUrl, undefined, undefined);
+      (match, linkUrl) => {
+        const altMatch = match.match(htmlAltPropertyRegex);
+        const linkText = (altMatch && altMatch[1]) || '';
+        return getLinkReplacement(subsMap, '<img>', linkText, linkUrl, undefined, undefined);
       },
     );
 
