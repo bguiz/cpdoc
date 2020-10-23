@@ -161,6 +161,34 @@ const htmlImageRegex =
 const htmlAltPropertyRegex =
   /^.*alt="([^"]+)".*$/;
 
+const externalUrlRegex = /^https?\:\/\//;
+
+function isLinkRelative(linkUrl) {
+  return (
+      (typeof linkUrl == 'string') &&
+      (
+        (linkUrl.charAt(0) === '.') ||
+        !linkUrl.match(externalUrlRegex)
+      )
+    );
+}
+
+function linkPrefixTransform(linkUrl, prefix) {
+  return path.join(prefix, linkUrl);
+}
+
+function transformLink(category, url, linkText, endPart = '') {
+  let replacement;
+  if (category === '[]()') {
+    replacement = `[${linkText}](${url}${endPart})`;
+  } else if (category === '<a>') {
+    replacement = `<a href="${url}${endPart}">${linkText}</a>`
+  } else if (category === '<img>') {
+    replacement = `<img src="${url}${endPart}" alt="${linkText}" />`
+  }
+  return replacement;
+}
+
 function getLinkReplacement(subsMap, category, linkText, linkUrl, anchorId, text) {
   let endPart = '';
   if (anchorId) {
@@ -183,18 +211,10 @@ function getLinkReplacement(subsMap, category, linkText, linkUrl, anchorId, text
       substituteUrl = subsMap.get(linkWithToggledTrailingSlash);
     }
   }
-  let replacement;
   if (typeof substituteUrl !== 'string') {
     substituteUrl = linkUrl;
   }
-  if (category === '[]()') {
-    replacement = `[${linkText}](${substituteUrl}${endPart})`;
-  } else if (category === '<a>') {
-    replacement = `<a href="${substituteUrl}${endPart}">${linkText}</a>`
-  } else if (category === '<img>') {
-    replacement = `<img src="${substituteUrl}${endPart}" alt="${linkText}" />`
-  }
-  return replacement;
+  return transformLink(category, substituteUrl, linkText, endPart);
 }
 
 async function markdownLinkFixer(options, contents, file, group) {
@@ -231,6 +251,71 @@ async function markdownLinkFixer(options, contents, file, group) {
       },
     );
   }
+  return updatedContents;
+}
+
+async function markdownRelativeLinkPrefixer(options, contents, file, group) {
+  const {
+    prefix,
+  } = options;
+  if (!prefix || typeof prefix !== 'string') {
+    return contents;
+  }
+  let updatedContents = contents;
+
+  updatedContents = updatedContents.replace(
+    htmlLinkRegex,
+    (_match, linkUrl, anchorId, linkText) => {
+      if (!isLinkRelative(linkUrl)) {
+        return _match;
+      }
+      const prefixedUrl = linkPrefixTransform(linkUrl, prefix);      let endPart = '';
+      if (anchorId) {
+        // sanitise the anchor ID
+        endPart += sanitiseAsId(anchorId);
+      }
+      return transformLink('<a>', prefixedUrl, linkText, endPart);
+      // return getLinkReplacement(
+      //   subsMap, '<a>', linkText, prefixedUrl, anchorId, undefined);
+    },
+  );
+
+  updatedContents = updatedContents.replace(
+    htmlImageRegex,
+    (match, linkUrl) => {
+      if (!isLinkRelative(linkUrl)) {
+        return _match;
+      }
+      const prefixedUrl = linkPrefixTransform(linkUrl, prefix);
+      const altMatch = match.match(htmlAltPropertyRegex);
+      const linkText = (altMatch && altMatch[1]) || '';
+      return transformLink('<img>', prefixedUrl, linkText, '');
+      // return getLinkReplacement(
+      //   subsMap, '<img>', linkText, prefixedUrl, undefined, undefined);
+    },
+  );
+
+  updatedContents = updatedContents.replace(
+    markdownLinkRegex,
+    (_match, linkText, linkUrl, anchorId, text) => {
+      if (!isLinkRelative(linkUrl)) {
+        return _match;
+      }
+      const prefixedUrl = linkPrefixTransform(linkUrl, prefix);
+      let endPart = '';
+      if (anchorId) {
+        // sanitise the anchor ID
+        endPart += sanitiseAsId(anchorId);
+      }
+      if (text) {
+        endPart += text;
+      }
+      return transformLink('[]()', prefixedUrl, linkText, endPart);
+      // return getLinkReplacement(
+      //   subsMap, '[]()', linkText, prefixedUrl, anchorId, text);
+    },
+  );
+
   return updatedContents;
 }
 
@@ -285,5 +370,6 @@ module.exports = {
   markdownFirstHeadingRemover,
   markdownExternalImageReplacer,
   markdownLinkFixer,
+  markdownRelativeLinkPrefixer,
   markdownFrontMatter,
 };

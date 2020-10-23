@@ -72,6 +72,8 @@ async function processFile(file, group, config) {
       contents = await markdownFirstHeadingRemover(postProcessorOptions, contents, file, group, config);
     } else if (postProcessorId === 'markdownHtmlStyleRemover') {
       contents = await markdownHtmlStyleRemover(postProcessorOptions, contents, file, group, config);
+    } else if (postProcessorId === 'markdownRelativeLinkPrefixer') {
+      contents = await markdownRelativeLinkPrefixer(postProcessorOptions, contents, file, group, config);
     } else {
       throw new Error(`Unsupported post-processor ${postProcessorId}`);
     }
